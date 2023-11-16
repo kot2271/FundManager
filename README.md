@@ -48,7 +48,7 @@ npx hardhat sendFunds --contract {CONTRACT_ADDRESS} --receiver {RECEIVER_ADDRESS
 
 Running a getTotalDonations task:
 ```shell
-npx hardhat getTotalDonations --contract {CONTRACT_ADDRESS} --network polygonMumbai
+npx hardhat getFoundationBalance --contract {CONTRACT_ADDRESS} --network polygonMumbai
 ```
 
 Running a createFoundation task:
