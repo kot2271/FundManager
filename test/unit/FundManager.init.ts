@@ -2,7 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Foundation, FundManager } from "../../typechain";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
 const oneEther = ethers.parseEther("1");
 const halfEther = ethers.parseEther("0.5");
@@ -93,42 +92,21 @@ describe("FundManager", function () {
     fundManager = (await fundManagerFactory.deploy()) as FundManager; 
   });
 
-  async function parseLogs() {
-    const tx = await fundManager.connect(owner).createFoundation(receiver.address, "Test Foundation", {value: oneEther});
-    let argsArray;
-    let foundationAddress;
-    let ownerAddress;
-    let description;
-    const receipt = await tx.wait();
-    if (receipt) {
-      const parsedLogs = receipt.logs.map((log) => {
-        try {
-          return fundManager.interface.parseLog({
-            topics: [...log.topics],
-            data: log.data,
-          });
-        } catch (e) {
-          return null; // not a log from the FundManager contract
-        }
-      }).filter((log) => log !== null);
-      argsArray = parsedLogs.map((log) => log?.args);
-    }
-   
-    for (const args of Object(argsArray)) {
-      [foundationAddress, ownerAddress, description] = args;
-    }
-   
-    return { foundationAddress, ownerAddress, description };
-   }
-
   describe("createFoundation", function () {
 
     it("Should create new foundation and emit event 'FoundationCreated'", async function () {
-        const { foundationAddress, ownerAddress, description } = await loadFixture(parseLogs);
+        const newFoundation = await fundManager.createFoundation(receiver.address, "Test Foundation", {value: oneEther});
 
-        expect(await fundManager.connect(owner).createFoundation(receiver.address, "Test Foundation", {value: oneEther}))
-          .to.emit(fundManager, "FoundationCreated")
-          .withArgs(foundationAddress, ownerAddress, "Test Foundation");
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+
+        const foundationAddress = events[0].args[0];
+        const ownerAddress = events[0].args[1];
+        const description = events[0].args[2];
+
+        expect(newFoundation)
+            .to.emit(fundManager, "FoundationCreated")
+            .withArgs(foundationAddress, ownerAddress, "Test Foundation");
         
         expect(ownerAddress).to.equal(owner.address);
         expect(await ethers.provider.getBalance(foundationAddress)).to.equal(oneEther);
@@ -147,14 +125,23 @@ describe("FundManager", function () {
   describe("transferFundsToReceiver", function () {
 
     it("Should allow sending funds", async function () {
-        const { foundationAddress } = await loadFixture(parseLogs);
+        await fundManager.createFoundation(receiver.address, "Test Foundation", {value: oneEther});
+
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+        const foundationAddress = events[0].args[0];
+
         expect(await fundManager.connect(owner).transferFundsToReceiver(foundationAddress, halfEther))
           .to.emit(foundation, "FundsSent")
           .withArgs(receiver.address, halfEther);
     });
 
     it("Should be to reduce the foundationBalance after sending funds", async function () {
-        const { foundationAddress } = await loadFixture(parseLogs);
+        await fundManager.createFoundation(receiver.address, "Test Foundation", {value: oneEther});
+
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+        const foundationAddress = events[0].args[0];
 
         await fundManager.connect(owner).transferFundsToReceiver(foundationAddress, halfEther); 
 
@@ -163,24 +150,45 @@ describe("FundManager", function () {
     
     });
 
-    it("Should be reverted with custom error 'UnauthorizedAccess'", async function () {
-        const { foundationAddress, ownerAddress } = await loadFixture(parseLogs);
+    it("Should increase the receiver's balance", async function () {
+        await fundManager.createFoundation(receiver.address, "Test Foundation", {value: oneEther});
 
-        expect(await fundManager.connect(owner).createFoundation(receiver.address, "Test Foundation", {value: oneEther}))
-          .to.emit(fundManager, "FoundationCreated")
-          .withArgs(foundationAddress, ownerAddress, "Test Foundation");
+        const initReceiverBalance = await ethers.provider.getBalance(receiver.address);
+
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+        const foundationAddress = events[0].args[0];
+
+        await fundManager.connect(owner).transferFundsToReceiver(foundationAddress, halfEther);
+
+        const receiverBalance = await ethers.provider.getBalance(receiver.address);
+        expect(receiverBalance).to.equal(initReceiverBalance + halfEther);
+
+    
+    });
+
+    it("Should be reverted with custom error 'UnauthorizedAccess'", async function () {
+        await fundManager.createFoundation(receiver.address, "Test Foundation", {value: oneEther});
+
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+        const foundationAddress = events[0].args[0];
 
         await expect(fundManager.connect(user1).transferFundsToReceiver(foundationAddress, halfEther))
           .to.be.revertedWithCustomError(fundManager, "UnauthorizedAccess");
     });
+ });
 
   describe("getFoundationBalance", function () {
     it("Should get foundation balance", async function () {
-        const { foundationAddress } = await loadFixture(parseLogs);
+        await fundManager.createFoundation(receiver.address, "Test Foundation", {value: oneEther});
+
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+        const foundationAddress = events[0].args[0];
+
         const balance = await fundManager.getFoundationBalance(foundationAddress);
         expect(balance).to.equal(oneEther);
     });
   });
-
- });
 });

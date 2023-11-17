@@ -46,12 +46,17 @@ Running a sendFunds task:
 npx hardhat sendFunds --contract {CONTRACT_ADDRESS} --receiver {RECEIVER_ADDRESS} --amount {AMOUNT} --network polygonMumbai
 ```
 
-Running a getTotalDonations task:
+Running a getFoundationBalance task:
 ```shell
-npx hardhat getFoundationBalance --contract {CONTRACT_ADDRESS} --network polygonMumbai
+npx hardhat getFoundationBalance --contract {FUNDMANAGER_CONTRACT_ADDRESS} --foundation {FOUNDATION__CONTRACT_ADDRESS} --network polygonMumbai
 ```
 
 Running a createFoundation task:
 ```shell
-npx hardhat createFoundation --receiver {RECEIVER_ADDRESS} --description {STRING_DESCRIPTION} --value {AMOUNT} --network polygonMumbai
+npx hardhat createFoundation --contract {FUNDMANAGER_CONTRACT_ADDRESS} --receiver {RECEIVER_ADDRESS} --description {STRING_DESCRIPTION} --value {AMOUNT} --network polygonMumbai
+```
+
+Running a transferFundsToReceiver task:
+```shell
+npx hardhat transferFundsToReceiver --contract {FUNDMANAGER_CONTRACT_ADDRESS} --foundation {NEW_FOUNDATION__CONTRACT_ADDRESS} --amount {AMOUNT} --network polygonMumbai
 ```
