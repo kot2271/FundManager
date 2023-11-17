@@ -56,6 +56,17 @@ describe("Foundation", function () {
         expect(await ethers.provider.getBalance(foundation.getAddress())).to.equal(halfEther);
     });
 
+    it("should send funds to receiver", async () => {
+      await foundation.connect(user1).donate({value: oneEther});
+      const beforeReceiverBalance = await ethers.provider.getBalance(receiver.address);
+
+      await foundation.connect(owner).sendFunds(oneEther);
+      
+      const afterReceiverBalance = await ethers.provider.getBalance(receiver.address);
+      expect(afterReceiverBalance)
+        .to.equal(beforeReceiverBalance + oneEther);
+    });
+
     it("Should be reverted with custom error 'OwnableUnauthorizedAccount'", async function () {
         await foundation.connect(user1).donate({value: oneEther});
     
@@ -120,6 +131,16 @@ describe("FundManager", function () {
           .withArgs(foundation.owner(), oneEther);
     });
 
+    it("Should not donate if msg.value is 0", async function () {
+      expect(await fundManager.connect(owner).createFoundation(receiver.address, "Test Foundation", {value: 0}))  
+        .to.emit(fundManager, "FoundationCreated");
+
+        const filter = fundManager.filters["FoundationCreated(address,address,string)"];
+        const events = await fundManager.queryFilter(filter);
+        const foundationAddress = events[0].args[0];
+      
+      expect(await ethers.provider.getBalance(foundationAddress)).to.equal(0); 
+    });
   });
 
   describe("transferFundsToReceiver", function () {
